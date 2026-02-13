@@ -34,8 +34,14 @@ cl screnkey.c /link user32.lib gdi32.lib
 ## Usage
 
 ```sh
-screnkey.exe
+screnkey.exe 
 ```
+note : press any key to popup the window, it won't appear untill you press any key.
+
+## Screenshot
+<img width="439" height="466" alt="miniScreenKey" src="https://github.com/user-attachments/assets/b5d061b9-e034-4947-b237-9424a0ad1df2" />
+
+
 
 | Action | Effect |
 |---|---|
