@@ -12,7 +12,8 @@
 #define _UNICODE
 #endif
 #include <windows.h>
-#include <stdio.h>
+#include <windowsx.h>  /* GET_X_LPARAM / GET_Y_LPARAM */
+#include <wchar.h>
 
 /* --- Config --- */
 #define WIN_SIZE      120
@@ -29,6 +30,15 @@ static HHOOK  g_hook;
 static WCHAR  g_label[16] = L"";
 static BOOL   g_dragging = FALSE;
 static POINT  g_drag_origin;
+
+/* Cached GDI objects (created once, reused every paint) */
+static HBRUSH g_bg_brush;
+static HBRUSH g_block_brush;
+static HPEN   g_border_pen;
+static HFONT  g_font;
+/* Cached double-buffer */
+static HDC     g_memdc;
+static HBITMAP g_membmp;
 
 /* ---- Map virtual key to a short display label ---- */
 static void vk_to_label(DWORD vk, WCHAR *buf, int buflen)
@@ -101,48 +111,35 @@ static void vk_to_label(DWORD vk, WCHAR *buf, int buflen)
     buf[buflen - 1] = 0;
 }
 
-/* ---- Paint ---- */
-static void paint(HDC hdc)
+/* ---- Paint into the cached back-buffer ---- */
+static void paint(void)
 {
     RECT rc = {0, 0, WIN_SIZE, WIN_SIZE};
 
-    /* fill transparent background */
-    HBRUSH bg = CreateSolidBrush(TRANS_COLOR);
-    FillRect(hdc, &rc, bg);
-    DeleteObject(bg);
+    FillRect(g_memdc, &rc, g_bg_brush);
 
     if (g_label[0] == 0) return;
 
     /* draw rounded block */
-    HBRUSH block = CreateSolidBrush(BLOCK_COLOR);
-    HPEN   pen   = CreatePen(PS_SOLID, 2, BORDER_COLOR);
-    HGDIOBJ oldBr = SelectObject(hdc, block);
-    HGDIOBJ oldPn = SelectObject(hdc, pen);
-    RoundRect(hdc,
+    HGDIOBJ oldBr = SelectObject(g_memdc, g_block_brush);
+    HGDIOBJ oldPn = SelectObject(g_memdc, g_border_pen);
+    RoundRect(g_memdc,
               PADDING, PADDING,
               WIN_SIZE - PADDING, WIN_SIZE - PADDING,
               CORNER_RADIUS * 2, CORNER_RADIUS * 2);
-    SelectObject(hdc, oldBr);
-    SelectObject(hdc, oldPn);
-    DeleteObject(block);
-    DeleteObject(pen);
+    SelectObject(g_memdc, oldBr);
+    SelectObject(g_memdc, oldPn);
 
     /* draw text */
-    HFONT font = CreateFontW(
-        FONT_SIZE, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
-        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-        CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_MODERN, L"Consolas");
-    HGDIOBJ oldFont = SelectObject(hdc, font);
-
-    SetBkMode(hdc, TRANSPARENT);
-    SetTextColor(hdc, TEXT_COLOR);
+    HGDIOBJ oldFont = SelectObject(g_memdc, g_font);
+    SetBkMode(g_memdc, TRANSPARENT);
+    SetTextColor(g_memdc, TEXT_COLOR);
 
     RECT textRc = {PADDING, PADDING, WIN_SIZE - PADDING, WIN_SIZE - PADDING};
-    DrawTextW(hdc, g_label, -1, &textRc,
+    DrawTextW(g_memdc, g_label, -1, &textRc,
               DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOCLIP);
 
-    SelectObject(hdc, oldFont);
-    DeleteObject(font);
+    SelectObject(g_memdc, oldFont);
 }
 
 /* ---- Low-level keyboard hook ---- */
@@ -163,15 +160,8 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
     case WM_PAINT: {
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
-        /* double buffer to avoid flicker */
-        HDC mem = CreateCompatibleDC(hdc);
-        HBITMAP bmp = CreateCompatibleBitmap(hdc, WIN_SIZE, WIN_SIZE);
-        HGDIOBJ old = SelectObject(mem, bmp);
-        paint(mem);
-        BitBlt(hdc, 0, 0, WIN_SIZE, WIN_SIZE, mem, 0, 0, SRCCOPY);
-        SelectObject(mem, old);
-        DeleteObject(bmp);
-        DeleteDC(mem);
+        paint();
+        BitBlt(hdc, 0, 0, WIN_SIZE, WIN_SIZE, g_memdc, 0, 0, SRCCOPY);
         EndPaint(hwnd, &ps);
         return 0;
     }
@@ -179,8 +169,8 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
     /* drag with left-click */
     case WM_LBUTTONDOWN:
         g_dragging = TRUE;
-        g_drag_origin.x = LOWORD(lParam);
-        g_drag_origin.y = HIWORD(lParam);
+        g_drag_origin.x = GET_X_LPARAM(lParam);
+        g_drag_origin.y = GET_Y_LPARAM(lParam);
         SetCapture(hwnd);
         return 0;
 
@@ -234,6 +224,22 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev, LPWSTR cmdLine, int nShow)
     /* make TRANS_COLOR pixels fully transparent */
     SetLayeredWindowAttributes(g_hwnd, TRANS_COLOR, 0, LWA_COLORKEY);
 
+    /* create cached GDI objects once */
+    g_bg_brush    = CreateSolidBrush(TRANS_COLOR);
+    g_block_brush = CreateSolidBrush(BLOCK_COLOR);
+    g_border_pen  = CreatePen(PS_SOLID, 2, BORDER_COLOR);
+    g_font = CreateFontW(
+        FONT_SIZE, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_MODERN, L"Consolas");
+
+    /* create cached double-buffer */
+    HDC screenDC = GetDC(g_hwnd);
+    g_memdc  = CreateCompatibleDC(screenDC);
+    g_membmp = CreateCompatibleBitmap(screenDC, WIN_SIZE, WIN_SIZE);
+    SelectObject(g_memdc, g_membmp);
+    ReleaseDC(g_hwnd, screenDC);
+
     ShowWindow(g_hwnd, SW_SHOW);
     UpdateWindow(g_hwnd);
 
@@ -247,5 +253,14 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev, LPWSTR cmdLine, int nShow)
     }
 
     UnhookWindowsHookEx(g_hook);
+
+    /* cleanup cached GDI objects */
+    DeleteDC(g_memdc);
+    DeleteObject(g_membmp);
+    DeleteObject(g_font);
+    DeleteObject(g_border_pen);
+    DeleteObject(g_block_brush);
+    DeleteObject(g_bg_brush);
+
     return 0;
 }
