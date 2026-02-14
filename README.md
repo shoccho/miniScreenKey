@@ -1,4 +1,4 @@
-# ScrenKey
+# screenkey
 
 A tiny, transparent on-screen key overlay for Windows. Shows the key you just pressed in a floating block — useful for screencasts, tutorials, and live demos.
 
@@ -22,13 +22,13 @@ Single C file. No dependencies beyond the Windows SDK.
 **GCC (MinGW):**
 
 ```sh
-gcc screnkey.c -o screnkey.exe -lgdi32 -luser32 -mwindows -municode
+gcc screenkey.c -o screenkey.exe -lgdi32 -luser32 -mwindows -municode
 ```
 
 **MSVC:**
 
 ```sh
-cl screnkey.c /link user32.lib gdi32.lib
+cl screenkey.c /link user32.lib gdi32.lib
 ```
 
 ## Download
@@ -37,7 +37,7 @@ Download the latest build from [here](https://github.com/shoccho/miniScreenKey/r
 ## Usage
 
 ```sh
-screnkey.exe 
+screenkey.exe 
 ```
 note : press any key to popup the window, it won't appear untill you press any key.
 
@@ -68,7 +68,7 @@ note : press any key to popup the window, it won't appear untill you press any k
 
 ## Configuration
 
-Edit the `#define` constants at the top of `screnkey.c`:
+Edit the `#define` constants at the top of `screenkey.c`:
 
 ```c
 #define WIN_SIZE      120          // window dimensions (px)

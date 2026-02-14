@@ -1,7 +1,7 @@
 /*
- * ScrenKey - Transparent key overlay using pure Win32 + GDI
- * Compile: cl screnkey.c /link user32.lib gdi32.lib
- *    or:   gcc screnkey.c -o screnkey.exe -lgdi32 -luser32 -mwindows
+ * Screenkey - Transparent key overlay using pure Win32 + GDI
+ * Compile: cl screenkey.c /link user32.lib gdi32.lib
+ *    or:   gcc screenkey.c -o screenkey.exe -lgdi32 -luser32 -mwindows
  */
 
 #define WIN32_LEAN_AND_MEAN
@@ -210,13 +210,13 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev, LPWSTR cmdLine, int nShow)
     WNDCLASSW wc = {0};
     wc.lpfnWndProc   = wnd_proc;
     wc.hInstance      = hInst;
-    wc.lpszClassName  = L"ScrenKey";
+    wc.lpszClassName  = L"Screenkey";
     wc.hCursor        = LoadCursor(NULL, IDC_ARROW);
     RegisterClassW(&wc);
 
     g_hwnd = CreateWindowExW(
         WS_EX_LAYERED | WS_EX_TOPMOST | WS_EX_TOOLWINDOW,
-        L"ScrenKey", L"ScrenKey",
+        L"Screenkey", L"Screenkey",
         WS_POPUP,
         50, 50, WIN_SIZE, WIN_SIZE,
         NULL, NULL, hInst, NULL);
