@@ -31,6 +31,9 @@ gcc screnkey.c -o screnkey.exe -lgdi32 -luser32 -mwindows -municode
 cl screnkey.c /link user32.lib gdi32.lib
 ```
 
+## Download
+Download the latest build from [here](https://github.com/shoccho/miniScreenKey/releases/latest)
+
 ## Usage
 
 ```sh
